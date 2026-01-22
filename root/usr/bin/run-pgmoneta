@@ -43,7 +43,7 @@ if [ ! -f /pgmoneta/pgmoneta.conf ]; then
     
     echo "Initializing pgmoneta..."
     pgmoneta-admin -g master-key
-    pgmoneta-admin -f /pgmoneta/pgmoneta_users.conf -U ${PG_BACKUP_NAME} -P ${PG_BACKUP_PASSWORD} add-user
+    pgmoneta-admin -f /pgmoneta/pgmoneta_users.conf -U ${PG_BACKUP_NAME} -P ${PG_BACKUP_PASSWORD} user add
     
     echo "PATH=/usr/pgsql-18/bin:\$PATH" > /home/pgmoneta/.bashrc
     echo "export PATH" >> /home/pgmoneta/.bashrc

@@ -14,6 +14,7 @@ RUN rpm -Uvh https://dl.fedoraproject.org/pub/epel/epel-release-latest-10.noarch
 RUN useradd -ms /bin/bash pgmoneta
 
 COPY root/ /
+RUN chmod +x /usr/bin/run-pgmoneta  
 
 RUN mkdir -p /pgconf /pgmoneta \
 COPY conf/* /conf/  
