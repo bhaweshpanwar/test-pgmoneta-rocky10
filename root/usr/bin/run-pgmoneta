@@ -1,0 +1,64 @@
+#!/bin/bash
+# /usr/bin/run-pgmoneta
+
+NODE_EXPORTER_PIDFILE=/tmp/node_exporter.pid
+
+# Trap signals for graceful shutdown
+function trap_sigterm() {
+    echo "Received SIGTERM, shutting down..."
+    kill -SIGINT $(head -1 $NODE_EXPORTER_PIDFILE)
+}
+
+trap 'trap_sigterm' SIGINT SIGTERM
+
+if [ ! -f /pgmoneta/pgmoneta.conf ]; then
+    echo "First run: Setting up pgmoneta..."
+    
+    required_vars=("PG_PRIMARY_NAME" "PG_PRIMARY_PORT" "PG_BACKUP_NAME" "PG_BACKUP_PASSWORD" "PG_BACKUP_SLOT")
+    for var in "${required_vars[@]}"; do
+        if [ -z "${!var}" ]; then
+            echo "ERROR: $var is not set!"
+            exit 1
+        fi
+    done
+    
+    cp /conf/pgmoneta.conf /tmp/pgmoneta.conf.tmp
+    
+    sed -i "s/PG_PRIMARY_NAME/$PG_PRIMARY_NAME/g" /tmp/pgmoneta.conf.tmp
+    sed -i "s/PG_PRIMARY_PORT/$PG_PRIMARY_PORT/g" /tmp/pgmoneta.conf.tmp
+    sed -i "s/PG_BACKUP_NAME/$PG_BACKUP_NAME/g" /tmp/pgmoneta.conf.tmp
+    sed -i "s/PG_BACKUP_SLOT/$PG_BACKUP_SLOT/g" /tmp/pgmoneta.conf.tmp
+    
+    if [ -f /pgconf/root.crt ] && [ -f /pgconf/server.crt ] && [ -f /pgconf/server.key ]; then
+        echo "Enabling TLS..."
+        sed -i "s/#tls = off/tls = on/g" /tmp/pgmoneta.conf.tmp
+        
+        cp /pgconf/root.crt /pgmoneta/
+        cp /pgconf/server.crt /pgmoneta/
+        cp /pgconf/server.key /pgmoneta/
+        chmod 0600 /pgmoneta/server.key
+    fi
+    
+    mv /tmp/pgmoneta.conf.tmp /pgmoneta/pgmoneta.conf
+    
+    echo "Initializing pgmoneta..."
+    pgmoneta-admin -g master-key
+    pgmoneta-admin -f /pgmoneta/pgmoneta_users.conf -U ${PG_BACKUP_NAME} -P ${PG_BACKUP_PASSWORD} add-user
+    
+    echo "PATH=/usr/pgsql-18/bin:\$PATH" > /home/pgmoneta/.bashrc
+    echo "export PATH" >> /home/pgmoneta/.bashrc
+
+    echo "Setting up backup schedule..."
+    (echo "00 06  *   *   0     /usr/bin/pgmoneta-cli -c /pgmoneta/pgmoneta.conf backup primary") | crontab -
+    
+    echo "Setup complete!"
+fi
+
+
+echo "Starting Node Exporter..."
+/usr/local/bin/node_exporter >> /tmp/node_exporter.log 2>&1 &
+echo $! > $NODE_EXPORTER_PIDFILE
+
+
+echo "Starting pgmoneta..."
+exec pgmoneta -c /pgmoneta/pgmoneta.conf -u /pgmoneta/pgmoneta_users.conf "$@"
