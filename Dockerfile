@@ -6,7 +6,14 @@ LABEL summary="This is the Docker image for pgmoneta on Rocky 10 (created for te
 #add repos
 RUN rpm -Uvh https://dl.fedoraproject.org/pub/epel/epel-release-latest-10.noarch.rpm \
  && dnf -y update \
- && dnf -y install wget tar crontabs \
+ && dnf -y install wget tar crontabs git gcc make postgresql18-libs \
+ && cd /tmp \
+ && git clone https://github.com/pgmoneta/pgmoneta.git \
+ && cd pgmoneta \
+ && make \
+ && make install \
+ && cd / \
+ && rm -rf /tmp/pgmoneta \
  && dnf -y install pgmoneta \
  && dnf -y clean all
 
