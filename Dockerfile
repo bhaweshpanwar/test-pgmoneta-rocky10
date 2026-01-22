@@ -4,21 +4,12 @@ FROM rockylinux/rockylinux:10
 LABEL summary="This is the Docker image for pgmoneta on Rocky 10 (created for testing purpose)"
 
 #add repos
-# Add EPEL and PostgreSQL repositories
 RUN rpm -Uvh https://dl.fedoraproject.org/pub/epel/epel-release-latest-10.noarch.rpm \
  && rpm -Uvh https://download.postgresql.org/pub/repos/yum/reporpms/EL-10-x86_64/pgdg-redhat-repo-latest.noarch.rpm \
  && dnf -y update \
- && dnf -y install wget tar crontabs git gcc make postgresql18-devel \
+ && dnf -y install wget tar crontabs \
+ && dnf -y install pgmoneta \
  && dnf -y clean all
-
-# Install pgmoneta from source
-RUN cd /tmp \
- && git clone https://github.com/pgmoneta/pgmoneta.git \
- && cd pgmoneta \
- && make \
- && make install \
- && cd / \
- && rm -rf /tmp/pgmoneta
 
 RUN useradd -ms /bin/bash pgmoneta
 
