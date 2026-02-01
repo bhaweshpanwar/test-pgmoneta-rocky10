@@ -6,10 +6,15 @@ NODE_EXPORTER_PIDFILE=/tmp/node_exporter.pid
 # Trap signals for graceful shutdown
 function trap_sigterm() {
     echo "Received SIGTERM, shutting down..."
-    kill -SIGINT $(head -1 $NODE_EXPORTER_PIDFILE)
+    if [ -f $NODE_EXPORTER_PIDFILE ]; then
+        kill -SIGINT $(head -1 $NODE_EXPORTER_PIDFILE) 2>/dev/null
+    fi
 }
 
 trap 'trap_sigterm' SIGINT SIGTERM
+
+# Socket directory
+mkdir -p /var/run/pgmoneta
 
 if [ ! -f /pgmoneta/pgmoneta.conf ]; then
     echo "First run: Setting up pgmoneta..."
@@ -37,11 +42,16 @@ if [ ! -f /pgmoneta/pgmoneta.conf ]; then
         cp /pgconf/server.crt /pgmoneta/
         cp /pgconf/server.key /pgmoneta/
         chmod 0600 /pgmoneta/server.key
+    else
+        echo "No TLS certificates found, running without TLS..."
+        sed -i "s/#tls = off/tls = off/g" /tmp/pgmoneta.conf.tmp
     fi
     
     mv /tmp/pgmoneta.conf.tmp /pgmoneta/pgmoneta.conf
-    
-    echo "Initializing pgmoneta..."
+
+    echo "Initializing pgmoneta admin..."
+    cd /pgmoneta
+
     pgmoneta-admin -g master-key
     pgmoneta-admin -f /pgmoneta/pgmoneta_users.conf -U ${PG_BACKUP_NAME} -P ${PG_BACKUP_PASSWORD} user add
     
@@ -51,14 +61,18 @@ if [ ! -f /pgmoneta/pgmoneta.conf ]; then
     echo "Setting up backup schedule..."
     (echo "00 06  *   *   0     /usr/bin/pgmoneta-cli -c /pgmoneta/pgmoneta.conf backup primary") | crontab -
     
-    echo "Setup complete!"
+    echo "pgmoneta setup complete!"
+else
+    echo "Configuration already exists, using existing setup..."
 fi
 
+# Ensure backup directories exist
+mkdir -p /pgmoneta/backup
+mkdir -p /pgmoneta/wal
 
 echo "Starting Node Exporter..."
 /usr/local/bin/node_exporter >> /tmp/node_exporter.log 2>&1 &
 echo $! > $NODE_EXPORTER_PIDFILE
-
 
 echo "Starting pgmoneta..."
 exec pgmoneta -c /pgmoneta/pgmoneta.conf -u /pgmoneta/pgmoneta_users.conf "$@"

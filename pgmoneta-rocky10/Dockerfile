@@ -1,11 +1,11 @@
 #Dockerfile for Rocky 10 and pgmoneta
-FROM rockylinux/rockylinux:10
+FROM rockylinux/rockylinux:8
 
 LABEL summary="This is the Docker image for pgmoneta on Rocky 10 (created for testing purpose)"
 
 #add repos
-RUN rpm -Uvh https://dl.fedoraproject.org/pub/epel/epel-release-latest-10.noarch.rpm \
- && rpm -Uvh https://download.postgresql.org/pub/repos/yum/reporpms/EL-10-x86_64/pgdg-redhat-repo-latest.noarch.rpm \
+RUN rpm -Uvh https://dl.fedoraproject.org/pub/epel/epel-release-latest-8.noarch.rpm \
+ && rpm -Uvh https://download.postgresql.org/pub/repos/yum/reporpms/EL-8-x86_64/pgdg-redhat-repo-latest.noarch.rpm \
  && dnf -y update \
  && dnf -y install wget tar crontabs \
  && dnf -y install pgmoneta \
@@ -14,10 +14,13 @@ RUN rpm -Uvh https://dl.fedoraproject.org/pub/epel/epel-release-latest-10.noarch
 RUN useradd -ms /bin/bash pgmoneta
 
 COPY root/ /
+COPY root/usr/bin/run-pgmoneta /usr/bin/run-pgmoneta
+RUN dnf -y install dos2unix && dos2unix /usr/bin/run-pgmoneta
 RUN chmod +x /usr/bin/run-pgmoneta  
 
 RUN mkdir -p /pgconf /pgmoneta \
 COPY conf/* /conf/  
+COPY conf/pgmoneta.conf /conf/pgmoneta.conf
 RUN chown -R pgmoneta:pgmoneta /conf /pgconf /pgmoneta  
 RUN chmod 700 /conf /pgconf /pgmoneta  
 
@@ -28,6 +31,8 @@ RUN cd /tmp \
  && cd / \
  && rm -rf /tmp/node_exporter* \
  && chown pgmoneta:pgmoneta /usr/local/bin/node_exporter
+
+RUN echo "pgmoneta" >> /etc/cron.allow
 
 VOLUME ["/pgconf","/pgmoneta"]
 EXPOSE 5001
