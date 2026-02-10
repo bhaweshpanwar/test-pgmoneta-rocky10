@@ -18,7 +18,7 @@ COPY root/usr/bin/run-pgmoneta /usr/bin/run-pgmoneta
 RUN dnf -y install dos2unix && dos2unix /usr/bin/run-pgmoneta
 RUN chmod +x /usr/bin/run-pgmoneta  
 
-RUN mkdir -p /pgconf /pgmoneta \
+RUN mkdir -p /pgconf /pgmoneta 
 COPY conf/* /conf/  
 COPY conf/pgmoneta.conf /conf/pgmoneta.conf
 RUN chown -R pgmoneta:pgmoneta /conf /pgconf /pgmoneta  

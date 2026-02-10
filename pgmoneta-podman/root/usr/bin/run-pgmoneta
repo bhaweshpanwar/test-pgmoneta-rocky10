@@ -1,0 +1,32 @@
+#!/bin/bash
+
+set -e
+
+if [ ! -f /pgmoneta/pgmoneta.conf ]; then
+    if [ -z "${PG_PRIMARY_HOST}" ] || [ -z "${PG_PRIMARY_PORT}" ] || \
+       [ -z "${PG_BACKUP_USER}" ] || [ -z "${PG_BACKUP_PASSWORD}" ] || [ -z "${PG_BACKUP_SLOT}" ]; then
+        echo "Error: The following environment variables must be defined:"
+        echo "PG_PRIMARY_HOST, PG_PRIMARY_PORT, PG_BACKUP_USER, PG_BACKUP_PASSWORD, PG_BACKUP_SLOT"
+        exit 1
+    fi
+
+    sed -e "s/PG_PRIMARY_HOST/${PG_PRIMARY_HOST}/g" \
+        -e "s/PG_PRIMARY_PORT/${PG_PRIMARY_PORT}/g" \
+        -e "s/PG_BACKUP_USER/${PG_BACKUP_USER}/g" \
+        -e "s/PG_BACKUP_SLOT/${PG_BACKUP_SLOT}/g" \
+        /conf/pgmoneta.conf > /pgmoneta/pgmoneta.conf
+
+    if [ -f /pgmoneta/root.crt ] && [ -f /pgmoneta/server.crt ] && [ -f /pgmoneta/server.key ]; then
+        echo "TLS certificates found. Enabling TLS."
+        sed -i "s/tls = off/tls = on/g" /pgmoneta/pgmoneta.conf
+        chmod 0600 /pgmoneta/server.key
+    fi
+
+    pgmoneta-admin -f /pgmoneta/pgmoneta.conf -g master-key
+
+    pgmoneta-admin -f /pgmoneta/pgmoneta_users.conf -U "${PG_BACKUP_USER}" -P "${PG_BACKUP_PASSWORD}" add-user
+
+    echo "Initialization complete. pgmoneta is ready."
+fi
+
+exec pgmoneta -c /pgmoneta/pgmoneta.conf -u /pgmoneta/pgmoneta_users.conf "$@"

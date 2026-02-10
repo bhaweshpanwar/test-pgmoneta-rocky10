@@ -16,7 +16,8 @@ trap 'trap_sigterm' SIGINT SIGTERM
 # Socket directory
 mkdir -p /var/run/pgmoneta
 
-if [ ! -f /pgmoneta/pgmoneta.conf ]; then
+# First run setup: check for config, master key, and users file
+if [ ! -f /pgmoneta/pgmoneta.conf ] || [ ! -f /home/pgmoneta/.pgmoneta/master.key ] || [ ! -f /pgmoneta/pgmoneta_users.conf ]; then
     echo "First run: Setting up pgmoneta..."
     
     required_vars=("PG_PRIMARY_NAME" "PG_PRIMARY_PORT" "PG_BACKUP_NAME" "PG_BACKUP_PASSWORD" "PG_BACKUP_SLOT")
@@ -50,16 +51,14 @@ if [ ! -f /pgmoneta/pgmoneta.conf ]; then
     mv /tmp/pgmoneta.conf.tmp /pgmoneta/pgmoneta.conf
 
     echo "Initializing pgmoneta admin..."
+    mkdir -p /home/pgmoneta/.pgmoneta
     cd /pgmoneta
 
     pgmoneta-admin -g master-key
     pgmoneta-admin -f /pgmoneta/pgmoneta_users.conf -U ${PG_BACKUP_NAME} -P ${PG_BACKUP_PASSWORD} user add
-    
-    echo "PATH=/usr/pgsql-18/bin:\$PATH" > /home/pgmoneta/.bashrc
-    echo "export PATH" >> /home/pgmoneta/.bashrc
 
     echo "Setting up backup schedule..."
-    (echo "00 06  *   *   0     /usr/bin/pgmoneta-cli -c /pgmoneta/pgmoneta.conf backup primary") | crontab -
+    (echo "00 06 * * 0 /usr/bin/pgmoneta-cli -c /pgmoneta/pgmoneta.conf backup primary") | crontab -
     
     echo "pgmoneta setup complete!"
 else
